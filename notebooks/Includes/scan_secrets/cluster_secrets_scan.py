@@ -97,7 +97,12 @@ db_client = SatDBClient(json_)
 
 # MAGIC %sh
 # MAGIC # Install required Python packages
-# MAGIC pip install requests pyyaml
+# MAGIC # Skip on serverless: requests and pyyaml are pre-installed; outbound PyPI access is blocked.
+# MAGIC if [[ "$DATABRICKS_RUNTIME_VERSION" == client* ]]; then
+# MAGIC     echo "Serverless runtime detected - requests and pyyaml are pre-installed, skipping pip install"
+# MAGIC else
+# MAGIC     pip install requests==2.32.3 PyYAML==6.0.2
+# MAGIC fi
 # MAGIC
 # MAGIC # Check if TruffleHog is already installed (likely from notebook scanner)
 # MAGIC if [ -f /tmp/trufflehog ]; then
@@ -105,8 +110,11 @@ db_client = SatDBClient(json_)
 # MAGIC     echo "Skipping installation (reusing from notebook scanner)"
 # MAGIC else
 # MAGIC     # Download and install TruffleHog binary to /tmp directory
-# MAGIC     echo "Installing TruffleHog..."
-# MAGIC     if curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /tmp; then
+# MAGIC     # Pinned to a tagged release to prevent supply-chain tampering via the
+# MAGIC     # mutable main branch. Bump TRUFFLEHOG_VERSION to upgrade.
+# MAGIC     TRUFFLEHOG_VERSION=v3.94.3
+# MAGIC     echo "Installing TruffleHog ${TRUFFLEHOG_VERSION}..."
+# MAGIC     if curl -sSfL "https://raw.githubusercontent.com/trufflesecurity/trufflehog/refs/tags/${TRUFFLEHOG_VERSION}/scripts/install.sh" | sh -s -- -b /tmp "${TRUFFLEHOG_VERSION}"; then
 # MAGIC         if [ -f /tmp/trufflehog ]; then
 # MAGIC             echo "Setup completed successfully!"
 # MAGIC             echo "TruffleHog binary location: /tmp/trufflehog"

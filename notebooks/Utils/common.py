@@ -157,7 +157,6 @@ def insertIntoControlTable(workspace_id, id, score, additional_details):
             VALUES ('{}', '{}', cast({} as int),  from_json('{}', 'MAP<STRING,STRING>'), {}, cast({} as timestamp))""".format(
         json_["analysis_schema_name"], workspace_id, id, score, jsonstr, run_id, ts
     )
-    ###print(sql)
     spark.sql(sql)
 
 
@@ -361,7 +360,7 @@ def load_sat_dasf_mapping():
   schema = '''sat_id int, dasf_control_id string,dasf_control_name string'''
 
   sat_dasf_mapping_pd = pd.read_csv(origfile, header=0, usecols=schema_list)
-    
+
   sat_dasf_mapping_pd = sat_dasf_mapping_pd.where(sat_dasf_mapping_pd.notna(), None)
   sat_dasf_mapping = (spark.createDataFrame(sat_dasf_mapping_pd.values.tolist(), schema)
                             .select('sat_id', 'dasf_control_id','dasf_control_name'))

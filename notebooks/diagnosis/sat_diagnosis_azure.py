@@ -84,7 +84,7 @@ sat_scope = json_['master_name_scope']
 for key in dbutils.secrets.list(sat_scope):
     print(key.key)
     secretvalue = dbutils.secrets.get(scope=sat_scope, key=key.key)
-    print(" ".join(secretvalue))
+    print(secretvalue)
 
 
 # COMMAND ----------
@@ -112,8 +112,8 @@ scopes = [ '2ff814a6-3304-4ab8-85cb-cd0e6f879c1d/.default' ]  # Scope required f
 result = app.acquire_token_for_client(scopes=scopes)
 
 if "access_token" in result:
-    access_token = result["access_token"] 
-    print("Access token:", access_token)
+    access_token = result["access_token"]
+    print("Access token obtained")
 else:
     print(result.get("error"))
     print(result.get("error_description"))
@@ -188,7 +188,6 @@ except requests.exceptions.RequestException as err:
 
 # COMMAND ----------
 
-# pip install msal
 import msal
 import sys
 def get_msal_token():
@@ -211,11 +210,10 @@ def get_msal_token():
         token = app.acquire_token_silent(scopes=scopes, account=None)
         if not token:
             token = app.acquire_token_for_client(scopes=scopes)
-        print(token)
         if token.get("access_token") is None:
             print(['no token'])
         else:
-            print(token.get("access_token"))
+            print("Access token obtained")
     except Exception as error:
         print(f"Exception {error}")
         print(str(error))

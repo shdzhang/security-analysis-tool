@@ -5,7 +5,6 @@ import urllib3
 import requests
 from core.logging_utils import LoggingUtils
 from core import parser as pars
-import msal
 import re
 from enum import Enum
 
@@ -86,7 +85,6 @@ class SatDBClient:
         #self._url=self._raw_url
         if(self._cloud_type == 'gcp'):
             self._url=self._ACCTURL
-            LOGGR.debug(f'GCP self._url {self._url} {self._client_id} {self._client_secret}') ##Remove
             oauth = self.getGCPTokenwithOAuth(True, self._client_id, self._client_secret)
             self._token = {
                 "Authorization": f"Bearer {oauth}",
@@ -639,16 +637,13 @@ class SatDBClient:
             databrickstype=True
         if not databrickstype and baccount: #master and to microsoft
             oauthtok=self.getAzureTokenWithMSAL("msmgmt")
-            LOGGR.debug(f"msmgmt1 {oauthtok}")
             return oauthtok #account dbtype
         elif databrickstype and baccount:  #master but databricks
             oauthtok=self.getAzureTokenWithMSAL("dbmgmt")
-            LOGGR.debug(f"dbmgmt1 {oauthtok}")
-            return oauthtok #account dbtype  
+            return oauthtok #account dbtype
         elif databrickstype and not baccount: #not master has to be databricks
             oauthtok=self.getAzureTokenWithMSAL("dbmgmt")
-            LOGGR.debug(f"dbmgmt1 {oauthtok}")
-            return oauthtok #account dbtype  
+            return oauthtok #account dbtype
         else:
             LOGGR.debug(f"This condition should never happen getAzureToken {endpoint} {baccount}")
             return None, None #account dbtype              
@@ -661,6 +656,7 @@ class SatDBClient:
         databricks scope for rest api '2ff814a6-3304-4ab8-85cb-cd0e6f879c1d/.default'
         some of these will change for govcloud or DoD
         """
+        import msal  # lazy import — only needed for Azure auth; not available on all serverless envs
         try:
             if self._cloud_type != 'azure':
                 raise Exception('works only for Azure')

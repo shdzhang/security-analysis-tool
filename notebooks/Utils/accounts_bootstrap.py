@@ -247,10 +247,21 @@ network_policy_schema = StructType([
             ])), True)
         ]), True)
     ]), True),
+    # Ingress enforcement is represented structurally, not via an
+    # enforcement_mode sub-field: the API puts the ingress block under
+    # `ingress` when the policy is set to "Enforced for all products", and
+    # under `ingress_dry_run` (same nested shape) when set to "Dry run mode
+    # for all products". A policy with no CBI configured has neither key
+    # populated. Capture both so NS-12 can read whichever one applies.
     StructField("ingress", StructType([
-        StructField("create_time", StringType(), True),
-        StructField("restriction_mode", StringType(), True),
-        StructField("update_time", StringType(), True)
+        StructField("public_access", StructType([
+            StructField("restriction_mode", StringType(), True)
+        ]), True)
+    ]), True),
+    StructField("ingress_dry_run", StructType([
+        StructField("public_access", StructType([
+            StructField("restriction_mode", StringType(), True)
+        ]), True)
     ]), True)
 ])
 
@@ -278,9 +289,16 @@ except Exception:
 
 # Collect workspace network configurations
 # This links workspaces to their assigned network policies
+# Scope to SAT-enabled workspaces only (account_workspaces.analysis_enabled=true),
+# matching the driver's own workspace iteration at
+# security_analysis_driver.py:68 and avoiding N API calls for unused workspaces.
 try:
-    workspaces = spark.table('acctworkspaces').collect()
-    loggr.info(f"Collecting network configurations for {len(workspaces)} workspaces")
+    schema = json_['analysis_schema_name']
+    workspaces = spark.sql(
+        f"SELECT workspace_id FROM {schema}.account_workspaces "
+        f"WHERE analysis_enabled = true"
+    ).collect()
+    loggr.info(f"Collecting network configurations for {len(workspaces)} SAT-enabled workspaces")
     for ws in workspaces:
         workspace_id = str(ws.workspace_id)
         try:
@@ -294,6 +312,46 @@ except Exception as e:
 # COMMAND ----------
 
 bootstrap('account_disable_legacy_features', acct_settings.get_disablelegacyfeatures)
+
+# COMMAND ----------
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##### Get Service Principal Secrets
+
+# COMMAND ----------
+
+from clientpkgs.accounts_oauth import AccountsOAuth
+
+try:
+    acct_oauth = AccountsOAuth(json_)
+    sp_list = acct_oauth.get_account_service_principals()
+    sp_secrets_all = []
+    for sp in sp_list:
+        sp_id = str(sp.get('id', ''))
+        sp_display_name = sp.get('displayName', '')
+        sp_app_id = str(sp.get('applicationId', ''))
+        try:
+            secrets = acct_oauth.get_service_principal_secrets(sp_id)
+            for secret in secrets:
+                secret['sp_id'] = sp_id
+                secret['sp_display_name'] = sp_display_name
+                secret['sp_app_id'] = sp_app_id
+                sp_secrets_all.append(secret)
+        except Exception as e:
+            loggr.warning(f"Could not fetch secrets for SP {sp_id} ({sp_display_name}): {e}")
+    if sp_secrets_all:
+        sp_secrets_json = [json.dumps(s) for s in sp_secrets_all]
+        sp_secrets_df = spark.read.json(spark.sparkContext.parallelize(sp_secrets_json))
+        sp_secrets_df.write.option("delta.columnMapping.mode", "name").mode("overwrite").saveAsTable('acctserviceprincipalssecrets')
+        loggr.info(f"Table created: `acctserviceprincipalssecrets` with {len(sp_secrets_all)} secret records")
+    else:
+        from pyspark.sql.types import StructType as EmptyStructType
+        spark.createDataFrame([], EmptyStructType([])).write.option("delta.columnMapping.mode", "name").mode("overwrite").saveAsTable('acctserviceprincipalssecrets')
+        loggr.info("No service principal secrets found")
+except Exception:
+    loggr.exception("Exception encountered while bootstrapping SP secrets")
 
 # COMMAND ----------
 

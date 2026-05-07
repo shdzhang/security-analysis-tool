@@ -13,6 +13,13 @@ resource "databricks_job" "initializer" {
         spark_version      = data.databricks_spark_version.latest_lts.id
         node_type_id       = data.databricks_node_type.smallest.id
         runtime_engine     = "PHOTON"
+        dynamic "aws_attributes" {
+          for_each = var.cloud_type == "aws" ? [1] : []
+          content {
+            availability    = "SPOT_WITH_FALLBACK"
+            first_on_demand = 1
+          }
+        }
         dynamic "gcp_attributes" {
           for_each = var.gcp_impersonate_service_account == "" ? [] : [var.gcp_impersonate_service_account]
           content {
@@ -23,9 +30,20 @@ resource "databricks_job" "initializer" {
     }
   }
 
+  dynamic "environment" {
+    for_each = var.run_on_serverless ? [1] : []
+    content {
+      environment_key = "default"
+      spec {
+        client = "5"
+      }
+    }
+  }
+
   task {
     task_key        = "Initializer"
     job_cluster_key = var.run_on_serverless ? null : "job_cluster"
+    environment_key = var.run_on_serverless ? "default" : null
     dynamic "library" {
       for_each = var.run_on_serverless ? [] : [1]
       content {
@@ -56,6 +74,13 @@ resource "databricks_job" "driver" {
         spark_version      = data.databricks_spark_version.latest_lts.id
         node_type_id       = data.databricks_node_type.smallest.id
         runtime_engine     = "PHOTON"
+        dynamic "aws_attributes" {
+          for_each = var.cloud_type == "aws" ? [1] : []
+          content {
+            availability    = "SPOT_WITH_FALLBACK"
+            first_on_demand = 1
+          }
+        }
         dynamic "gcp_attributes" {
           for_each = var.gcp_impersonate_service_account == "" ? [] : [var.gcp_impersonate_service_account]
           content {
@@ -66,10 +91,20 @@ resource "databricks_job" "driver" {
     }
   }
 
+  dynamic "environment" {
+    for_each = var.run_on_serverless ? [1] : []
+    content {
+      environment_key = "default"
+      spec {
+        client = "5"
+      }
+    }
+  }
 
   task {
     task_key        = "Driver"
     job_cluster_key = var.run_on_serverless ? null : "job_cluster"
+    environment_key = var.run_on_serverless ? "default" : null
     dynamic "library" {
       for_each = var.run_on_serverless ? [] : [1]
       content {
@@ -107,6 +142,13 @@ resource "databricks_job" "secrets_scanner" {
         spark_version      = data.databricks_spark_version.latest_lts.id
         node_type_id       = data.databricks_node_type.smallest.id
         runtime_engine     = "PHOTON"
+        dynamic "aws_attributes" {
+          for_each = var.cloud_type == "aws" ? [1] : []
+          content {
+            availability    = "SPOT_WITH_FALLBACK"
+            first_on_demand = 1
+          }
+        }
         dynamic "gcp_attributes" {
           for_each = var.gcp_impersonate_service_account == "" ? [] : [var.gcp_impersonate_service_account]
           content {
@@ -117,9 +159,20 @@ resource "databricks_job" "secrets_scanner" {
     }
   }
 
+  dynamic "environment" {
+    for_each = var.run_on_serverless ? [1] : []
+    content {
+      environment_key = "default"
+      spec {
+        client = "5"
+      }
+    }
+  }
+
   task {
     task_key        = "secrets_scanner"
     job_cluster_key = var.run_on_serverless ? null : "job_cluster"
+    environment_key = var.run_on_serverless ? "default" : null
     dynamic "library" {
       for_each = var.run_on_serverless ? [] : [1]
       content {
